@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 
-// Firebase imports will be handled by the environment, but shown here for clarity
+// Firebase imports
 import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, signInAnonymously, signInWithCustomToken } from 'firebase/auth';
 import { getFirestore, collection, addDoc, onSnapshot, updateDoc, doc, query, setDoc, deleteDoc, writeBatch } from 'firebase/firestore';
@@ -13,19 +13,17 @@ import {
     Calendar, Users2, Clock, Info, ThumbsUp, ThumbsDown, GitMerge, ChevronsUpDown, AlignLeft
 } from 'lucide-react';
 
-// --- Firebase Configuration (Standard Vite Method) ---
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID
-};
+// --- Firebase Configuration (Adapted for this environment) ---
+// This setup reads credentials from a globally injected variable to avoid compilation issues.
+// For a real-world deployment on Netlify, you would use the import.meta.env method.
+const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'legalhub-okr-default';
+const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
 
 // --- Initialize Firebase ---
 let app, auth, db;
-// Check if all required config keys are present before initializing
+
 if (firebaseConfig.apiKey && firebaseConfig.projectId) {
     app = initializeApp(firebaseConfig);
     auth = getAuth(app);

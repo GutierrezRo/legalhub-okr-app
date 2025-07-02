@@ -13,25 +13,23 @@ import {
     Calendar, Users2, Clock, Info, ThumbsUp, ThumbsDown, GitMerge, ChevronsUpDown, AlignLeft
 } from 'lucide-react';
 
-// --- Firebase Configuration (Standard Vite/Netlify Method) ---
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID
-};
+// --- Firebase Configuration (Adapted for this environment) ---
+// This setup reads credentials from a globally injected variable to avoid compilation issues.
+// For your real-world deployment on Netlify, you must use the import.meta.env method.
+const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
 
 // --- Initialize Firebase ---
 let app, auth, db;
+const appId = firebaseConfig.projectId || 'legalhub-okr-default';
+// This variable is only for the interactive environment and won't be used in Netlify.
+const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
 if (firebaseConfig.apiKey && firebaseConfig.projectId) {
     app = initializeApp(firebaseConfig);
     auth = getAuth(app);
     db = getFirestore(app);
 } else {
-    console.error("Firebase config is missing or incomplete. Check your environment variables.");
+    console.error("Firebase config is missing or incomplete. Check your environment variables in Netlify.");
 }
 
 
@@ -192,7 +190,7 @@ const Sidebar = ({ view, setView, user, onSignOut }) => {
 }
 
 // --- Main Application Content ---
-const AppContent = ({ user }) => {
+const AppContent = ({ user, isAuthReady }) => {
     const [view, setView] = useState('home');
     const [savedOrgOkrs, setSavedOrgOkrs] = useState([]);
     const [savedTeamOkrs, setSavedTeamOkrs] = useState([]);
@@ -214,7 +212,12 @@ const AppContent = ({ user }) => {
 
     // Fetch All Data
     useEffect(() => {
-        if (!user || !db) return;
+        // We now wait for authentication to be fully ready before fetching data
+        if (!user || !db || !isAuthReady) {
+            setIsLoading(false);
+            return;
+        }
+        
         setIsLoading(true);
         const paths = {
             teamOkrs: teamOkrsCollectionPath,
@@ -241,9 +244,17 @@ const AppContent = ({ user }) => {
             setSavedInitiatives(data);
         }, (err) => console.error("Error fetching initiatives:", err));
 
-        setIsLoading(false);
-        return () => { unsubTeamOkrs(); unsubOrgOkrs(); unsubSetup(); unsubInitiatives(); };
-    }, [user]);
+        // Set a timeout to give snapshots time to load
+        const loadingTimer = setTimeout(() => setIsLoading(false), 1000);
+
+        return () => { 
+            unsubTeamOkrs(); 
+            unsubOrgOkrs(); 
+            unsubSetup(); 
+            unsubInitiatives();
+            clearTimeout(loadingTimer);
+        };
+    }, [user, isAuthReady]); // Dependency on isAuthReady is crucial
 
     const handleSignOut = async () => { await signOut(auth); };
 
@@ -396,7 +407,7 @@ export default function App() {
         </div>;
     }
 
-    return user ? <AppContent user={user} /> : <LoginView />;
+    return user ? <AppContent user={user} isAuthReady={isAuthReady} /> : <LoginView />;
 }
 
 // --- VIEWS AND SUB-COMPONENTS (Full Implementation) ---
